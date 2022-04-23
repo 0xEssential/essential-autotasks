@@ -7,6 +7,18 @@ import { BigNumber, Contract } from 'ethers';
 
 import Forwarder from './abis/NFightGasStation.json';
 
+interface ForwardRequest {
+  to: string;
+  from: string;
+  authorizer: string;
+  nftContract: string;
+  nonce: string;
+  nftTokenId: BigNumber;
+  nftChainId: BigNumber;
+  targetChainId: BigNumber;
+  data: string;
+}
+
 async function relay(
   forwarder: Contract,
   request: ForwardRequest,
@@ -34,7 +46,6 @@ async function relay(
 export async function handler(
   event: {
     request: { body: { request: ForwardRequest; signature: string } };
-    secrets: { mumbaiRpcUrl: string };
   } & RelayerParams,
 ) {
   // Parse webhook payload
@@ -49,7 +60,7 @@ export async function handler(
   });
 
   const forwarder = new Contract(Forwarder.address, Forwarder.abi, signer);
-  console.warn('here');
+
   // Relay transaction!
   const tx = await relay(forwarder, request, signature);
   console.log(`Sent meta-tx: ${tx.hash}`);

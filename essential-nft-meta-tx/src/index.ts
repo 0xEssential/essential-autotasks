@@ -1,12 +1,24 @@
-import { JsonRpcProvider } from '@ethersproject/providers';
+import { InfuraProvider } from '@ethersproject/providers';
 import {
   DefenderRelayProvider,
   DefenderRelaySigner,
 } from 'defender-relay-client/lib/ethers';
 import { RelayerParams } from 'defender-relay-client/lib/relayer';
-import { Contract, utils } from 'ethers';
+import { BigNumber, Contract, utils } from 'ethers';
 
 import Forwarder from './abis/EssentialForwarder.json';
+
+interface ForwardRequest {
+  to: string;
+  from: string;
+  authorizer: string;
+  nftContract: string;
+  nonce: string;
+  nftTokenId: BigNumber;
+  nftChainId: BigNumber;
+  targetChainId: BigNumber;
+  data: string;
+}
 
 async function preflight(
   forwarder: Contract,
@@ -56,7 +68,7 @@ async function retrieveProof({ url, callData }): Promise<string> {
 export async function handler(
   event: {
     request: { body: { request: ForwardRequest; signature: string } };
-    secrets: { mumbaiRpcUrl: string };
+    secrets: { infuraKey: string };
   } & RelayerParams,
 ) {
   // Parse webhook payload
@@ -65,16 +77,19 @@ export async function handler(
 
   // Initialize Relayer provider, signer and forwarder contract
   const credentials = { ...event };
-  const { mumbaiRpcUrl } = event.secrets;
   const provider = new DefenderRelayProvider(credentials);
   const signer = new DefenderRelaySigner(credentials, provider, {
     speed: 'fastest',
   });
-  const jsonProvider = new JsonRpcProvider(mumbaiRpcUrl);
+
+  const { infuraKey } = event.secrets;
+
+  const readProvider = new InfuraProvider(infuraKey, request.targetChainId);
+
   const _forwarder = new Contract(
     Forwarder.address,
     Forwarder.abi,
-    jsonProvider,
+    readProvider,
   );
 
   const forwarder = Object.assign(_forwarder, {
