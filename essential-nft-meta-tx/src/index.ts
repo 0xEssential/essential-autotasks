@@ -4,7 +4,7 @@ import {
   DefenderRelaySigner,
 } from 'defender-relay-client/lib/ethers';
 import { RelayerParams } from 'defender-relay-client/lib/relayer';
-import { BigNumber, Contract, utils } from 'ethers';
+import { Contract, utils } from 'ethers';
 
 import Forwarder from './abis/EssentialForwarder.json';
 
@@ -14,9 +14,9 @@ interface ForwardRequest {
   authorizer: string;
   nftContract: string;
   nonce: string;
-  nftTokenId: BigNumber;
-  nftChainId: BigNumber;
-  targetChainId: BigNumber;
+  nftTokenId: string;
+  nftChainId: string;
+  targetChainId: string;
   data: string;
 }
 
@@ -83,8 +83,11 @@ export async function handler(
   });
 
   const { infuraKey } = event.secrets;
-
-  const readProvider = new InfuraProvider(infuraKey, request.targetChainId);
+  console.warn(request.targetChainId);
+  const readProvider = new InfuraProvider(
+    parseInt(request.targetChainId, 10),
+    infuraKey,
+  );
 
   const _forwarder = new Contract(
     Forwarder.address,
