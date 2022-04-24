@@ -28,9 +28,7 @@ async function preflight(
   // Validate request on the forwarder contract
 
   try {
-    await forwarder.preflight(request, signature, {
-      gasLimit: 10_000_000,
-    });
+    await forwarder.preflight(request, signature);
 
     console.warn(`Preflight did not revert`);
   } catch (e) {
@@ -60,7 +58,7 @@ async function retrieveProof({ url, callData }): Promise<string> {
   });
 
   const body = await response.json();
-  console.warn(body);
+
   return body?.result;
 }
 
@@ -83,7 +81,7 @@ export async function handler(
   });
 
   const { infuraKey } = event.secrets;
-  console.warn(request.targetChainId);
+
   const readProvider = new InfuraProvider(
     parseInt(request.targetChainId, 10),
     infuraKey,
