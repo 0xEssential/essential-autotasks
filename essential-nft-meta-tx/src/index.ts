@@ -6,8 +6,6 @@ import {
 import { RelayerParams } from 'defender-relay-client/lib/relayer';
 import { Contract, utils } from 'ethers';
 
-import Forwarder from './abis/EssentialForwarder.json';
-
 interface ForwardRequest {
   to: string;
   from: string;
@@ -45,7 +43,7 @@ async function preflight(
   }
 }
 
-async function retrieveProof({ url, callData }): Promise<string> {
+async function retrieveProof({ url, callData, forwarder }): Promise<string> {
   const response = await fetch(url, {
     method: 'POST',
     body: JSON.stringify({
@@ -53,7 +51,7 @@ async function retrieveProof({ url, callData }): Promise<string> {
       id: 1,
       method: 'durin_call',
       // use sender - can check later against signer of req
-      params: { callData, to: Forwarder.address, abi: Forwarder.abi },
+      params: { callData, to: forwarder.address, abi: forwarder.abi },
     }),
   });
 
@@ -65,13 +63,19 @@ async function retrieveProof({ url, callData }): Promise<string> {
 // Entrypoint for the Autotask
 export async function handler(
   event: {
-    request: { body: { request: ForwardRequest; signature: string } };
+    request: {
+      body: {
+        request: ForwardRequest;
+        signature: string;
+        forwarder: Record<string, any>;
+      };
+    };
     secrets: { infuraKey: string };
   } & RelayerParams,
 ) {
   // Parse webhook payload
   if (!event.request || !event.request.body) throw new Error(`Missing payload`);
-  const { request, signature } = event.request.body;
+  const { request, signature, forwarder } = event.request.body;
 
   // Initialize Relayer provider, signer and forwarder contract
   const credentials = { ...event };
@@ -86,26 +90,21 @@ export async function handler(
     parseInt(request.targetChainId, 10),
     infuraKey,
   );
-
   const _forwarder = new Contract(
-    Forwarder.address,
-    Forwarder.abi,
+    forwarder.address,
+    forwarder.abi,
     readProvider,
   );
 
-  const forwarder = Object.assign(_forwarder, {
-    name: '0xEssential PlaySession',
-  });
-
   // Preflight transaction
   const { urls, callData, callbackFunction, extraData } = await preflight(
-    forwarder,
+    _forwarder,
     request,
     signature,
   );
 
   // Fetch proof from error params
-  const proof = await retrieveProof({ url: urls[0], callData });
+  const proof = await retrieveProof({ url: urls[0], callData, forwarder });
 
   if (!proof) throw Error('No proof');
 
