@@ -119,7 +119,7 @@ export async function handler(
       callbackFunction,
       abi.encode(['bytes', 'bytes'], [proof, extraData]),
     ]),
-    gasLimit: 150_000,
+    // gasLimit: 150_000, we're around 160k now?
   });
 
   console.log(`Sent meta-tx: ${tx.hash}`);
