@@ -4,7 +4,7 @@ import {
   DefenderRelaySigner,
 } from 'defender-relay-client/lib/ethers';
 import { RelayerParams } from 'defender-relay-client/lib/relayer';
-import { Contract, utils } from 'ethers';
+import { BigNumber, Contract, utils } from 'ethers';
 
 interface ForwardRequest {
   to: string;
@@ -60,8 +60,7 @@ async function retrieveProof({ url, callData, forwarder }): Promise<string> {
   return body?.result;
 }
 
-// Entrypoint for the Autotask
-export async function handler(
+async function handleNFTRequest(
   event: {
     request: {
       body: {
@@ -72,24 +71,16 @@ export async function handler(
     };
     secrets: { infuraKey: string };
   } & RelayerParams,
+  signer: DefenderRelaySigner,
 ) {
-  // Parse webhook payload
-  if (!event.request || !event.request.body) throw new Error(`Missing payload`);
-  const { request, signature, forwarder } = event.request.body;
-
-  // Initialize Relayer provider, signer and forwarder contract
-  const credentials = { ...event };
-  const provider = new DefenderRelayProvider(credentials);
-  const signer = new DefenderRelaySigner(credentials, provider, {
-    speed: 'fastest',
-  });
-
   const { infuraKey } = event.secrets;
+  const { request, signature, forwarder } = event.request.body;
 
   const readProvider = new InfuraProvider(
     parseInt(request.targetChainId, 10),
     infuraKey,
   );
+
   const _forwarder = new Contract(
     forwarder.address,
     forwarder.abi,
@@ -121,4 +112,66 @@ export async function handler(
 
   console.log(`Sent meta-tx: ${tx.hash}`);
   return { txHash: tx.hash };
+}
+
+async function relay(
+  forwarder: Contract,
+  request: ForwardRequest,
+  signature: string,
+) {
+  // Validate request on the forwarder contract
+  const valid = await forwarder.verify(
+    { value: BigNumber.from(0), gas: 1e6, ...request },
+    signature,
+  );
+
+  if (!valid) throw new Error(`Invalid request`);
+
+  return await forwarder.execute(
+    { value: BigNumber.from(0), gas: 1e6, ...request },
+    signature,
+    {
+      gasLimit: 1e6,
+      value: 0,
+    },
+  );
+}
+
+async function handleStandardRequest(event, signer) {
+  const { request, signature, forwarder } = event.request.body;
+  const _forwarder = new Contract(forwarder.address, forwarder.abi, signer);
+  const tx = await relay(_forwarder, request, signature);
+  console.log(`Sent meta-tx: ${tx.hash}`);
+  return { txHash: tx.hash };
+}
+
+// Entrypoint for the Autotask
+export async function handler(
+  event: {
+    request: {
+      body: {
+        request: ForwardRequest;
+        signature: string;
+        forwarder: Record<string, any>;
+      };
+    };
+    secrets: { infuraKey: string };
+  } & RelayerParams,
+) {
+  // Parse webhook payload
+  if (!event.request || !event.request.body) throw new Error(`Missing payload`);
+  const { request } = event.request.body;
+
+  // Initialize Relayer provider, signer and forwarder contract
+  const credentials = { ...event };
+  const provider = new DefenderRelayProvider(credentials);
+  const signer = new DefenderRelaySigner(credentials, provider, {
+    speed: 'fastest',
+  });
+
+  if (request.nftChainId && request.nftContract && request.nftTokenId) {
+    return handleNFTRequest(event, signer);
+  }
+
+  return handleStandardRequest(event, signer);
 }
