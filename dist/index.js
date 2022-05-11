@@ -15388,6 +15388,7 @@ function retrieveProof(_a) {
                     return [4 /*yield*/, response.json()];
                 case 2:
                     body = _b.sent();
+                    console.warn(body);
                     return [2 /*return*/, body === null || body === void 0 ? void 0 : body.result];
             }
         });
@@ -15417,7 +15418,8 @@ function handleNFTRequest(event, signer) {
                             data: ethers$1.utils.hexConcat([
                                 callbackFunction,
                                 abi.encode(['bytes', 'bytes'], [proof, extraData]),
-                            ])
+                            ]),
+                            gasLimit: 280000
                         })];
                 case 3:
                     tx = _c.sent();

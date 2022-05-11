@@ -57,6 +57,8 @@ async function retrieveProof({ url, callData, forwarder }): Promise<string> {
 
   const body = await response.json();
 
+  console.warn(body);
+
   return body?.result;
 }
 
@@ -107,7 +109,7 @@ async function handleNFTRequest(
       callbackFunction,
       abi.encode(['bytes', 'bytes'], [proof, extraData]),
     ]),
-    // gasLimit: 150_000, we're around 160k now?
+    gasLimit: 280_000, //we're around 160k now?
   });
 
   console.log(`Sent meta-tx: ${tx.hash}`);
