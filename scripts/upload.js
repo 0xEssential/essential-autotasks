@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 const { AutotaskClient } = require('defender-autotask-client');
 
 async function uploadCode(autotaskId, apiKey, apiSecret) {
@@ -6,11 +7,14 @@ async function uploadCode(autotaskId, apiKey, apiSecret) {
 }
 
 async function main() {
+  const network = process.argv[2];
+  const key = `${network.toUpperCase()}_AUTOTASK_ID`;
+
   require('dotenv').config();
   const {
     TEAM_API_KEY: apiKey,
     TEAM_API_SECRET: apiSecret,
-    AUTOTASK_ID: autotaskId,
+    [key]: autotaskId,
   } = process.env;
   if (!autotaskId) throw new Error(`Missing autotask id`);
   await uploadCode(autotaskId, apiKey, apiSecret);
