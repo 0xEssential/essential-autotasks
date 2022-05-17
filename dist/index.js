@@ -12,7 +12,7 @@ function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'defau
 var require$$0__default = /*#__PURE__*/_interopDefaultLegacy(require$$0);
 var require$$0__default$1 = /*#__PURE__*/_interopDefaultLegacy(require$$0$1);
 
-/*! *****************************************************************************
+/******************************************************************************
 Copyright (c) Microsoft Corporation.
 
 Permission to use, copy, modify, and/or distribute this software for any
@@ -4284,7 +4284,7 @@ function splitSignature(signature) {
     return result;
 }
 
-const version$d = "bignumber/5.6.0";
+const version$d = "bignumber/5.6.1";
 
 var BN = bn.BN;
 const logger$i = new Logger(version$d);
@@ -4294,7 +4294,6 @@ const MAX_SAFE = 0x1fffffffffffff;
 let _warnedToStringRadix = false;
 class BigNumber {
     constructor(constructorGuard, hex) {
-        logger$i.checkNew(new.target, BigNumber);
         if (constructorGuard !== _constructorGuard$1) {
             logger$i.throwError("cannot call constructor directly; use BigNumber.from", Logger.errors.UNSUPPORTED_OPERATION, {
                 operation: "new (BigNumber)"
@@ -8777,7 +8776,7 @@ var bech32 = {
   fromWords: fromWords
 };
 
-const version$3 = "providers/5.6.5";
+const version$3 = "providers/5.6.6";
 
 function createCommonjsModule(fn, basedir, module) {
 	return module = {
@@ -11560,7 +11559,6 @@ function parse(rawTransaction) {
 const logger$6 = new Logger(version$3);
 class Formatter {
     constructor() {
-        logger$6.checkNew(new.target, Formatter);
         this.formats = this.getDefaultFormats();
     }
     getDefaultFormats() {
@@ -12572,7 +12570,6 @@ class BaseProvider extends Provider {
      *
      */
     constructor(network) {
-        logger$5.checkNew(new.target, Provider);
         super();
         // Events being listened to
         this._events = [];
@@ -13956,7 +13953,7 @@ class BaseProvider extends Provider {
     }
 }
 
-const version = "abstract-signer/5.6.0";
+const version = "abstract-signer/5.6.1";
 
 var __awaiter$3 = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
@@ -14239,18 +14236,21 @@ var __awaiter$2 = (undefined && undefined.__awaiter) || function (thisArg, _argu
 };
 const logger$3 = new Logger(version$3);
 const errorGas = ["call", "estimateGas"];
-function spelunk(value) {
+function spelunk(value, requireData) {
     if (value == null) {
         return null;
     }
     // These *are* the droids we're looking for.
-    if (typeof (value.message) === "string" && value.message.match("reverted") && isHexString(value.data)) {
-        return { message: value.message, data: value.data };
+    if (typeof (value.message) === "string" && value.message.match("reverted")) {
+        const data = isHexString(value.data) ? value.data : null;
+        if (!requireData || data) {
+            return { message: value.message, data };
+        }
     }
     // Spelunk further...
     if (typeof (value) === "object") {
         for (const key in value) {
-            const result = spelunk(value[key]);
+            const result = spelunk(value[key], requireData);
             if (result) {
                 return result;
             }
@@ -14260,23 +14260,38 @@ function spelunk(value) {
     // Might be a JSON string we can further descend...
     if (typeof (value) === "string") {
         try {
-            return spelunk(JSON.parse(value));
+            return spelunk(JSON.parse(value), requireData);
         }
         catch (error) { }
     }
     return null;
 }
 function checkError(method, error, params) {
+    const transaction = params.transaction || params.signedTransaction;
     // Undo the "convenience" some nodes are attempting to prevent backwards
     // incompatibility; maybe for v6 consider forwarding reverts as errors
     if (method === "call") {
-        const result = spelunk(error);
+        const result = spelunk(error, true);
         if (result) {
             return result.data;
         }
+        // Nothing descriptive..
         logger$3.throwError("missing revert data in call exception; Transaction reverted without a reason string", Logger.errors.CALL_EXCEPTION, {
-            error, data: "0x"
+            data: "0x", transaction, error
         });
+    }
+    if (method === "estimateGas") {
+        // Try to find something, with a preference on SERVER_ERROR body
+        let result = spelunk(error.body, false);
+        if (result == null) {
+            result = spelunk(error, false);
+        }
+        // Found "reverted", this is a CALL_EXCEPTION
+        if (result) {
+            logger$3.throwError("cannot estimate gas; transaction may fail or may require manual gas limit", Logger.errors.UNPREDICTABLE_GAS_LIMIT, {
+                reason: result.message, method, transaction, error
+            });
+        }
     }
     // @TODO: Should we spelunk for message too?
     let message = error.message;
@@ -14290,7 +14305,6 @@ function checkError(method, error, params) {
         message = error.responseText;
     }
     message = (message || "").toLowerCase();
-    const transaction = params.transaction || params.signedTransaction;
     // "insufficient funds for gas * price + value + cost(data)"
     if (message.match(/insufficient funds|base fee exceeds gas limit/i)) {
         logger$3.throwError("insufficient funds for intrinsic transaction cost", Logger.errors.INSUFFICIENT_FUNDS, {
@@ -14346,7 +14360,6 @@ function getLowerCase(value) {
 const _constructorGuard = {};
 class JsonRpcSigner extends Signer {
     constructor(constructorGuard, provider, addressOrIndex) {
-        logger$3.checkNew(new.target, JsonRpcSigner);
         super();
         if (constructorGuard !== _constructorGuard) {
             throw new Error("do not call the JsonRpcSigner constructor directly; use provider.getSigner");
@@ -14526,7 +14539,6 @@ const allowedTransactionKeys = {
 };
 class JsonRpcProvider extends BaseProvider {
     constructor(url, network) {
-        logger$3.checkNew(new.target, JsonRpcProvider);
         let networkOrReady = network;
         // The network is unknown, query the JSON-RPC for it
         if (networkOrReady == null) {
